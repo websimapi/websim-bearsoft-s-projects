@@ -34,6 +34,11 @@ body {
     font-size: 2em;
 }
 
+#user-profile p {
+    margin: 10px 0 0;
+    color: #606770;
+}
+
 #user-profile a {
     color: #007bff;
     text-decoration: none;
@@ -123,5 +128,65 @@ body {
 
 .error {
     color: #dc3545;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    padding: 15px;
+    border-radius: 4px;
+    margin-top: 20px;
 }
 
+#form-container {
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+#username-form h1 {
+    margin-top: 0;
+    font-size: 1.8em;
+    color: #1c1e21;
+}
+
+#username-form p {
+    color: #606770;
+    margin-bottom: 20px;
+}
+
+.form-input-group {
+    display: flex;
+    justify-content: center;
+}
+
+.form-input-group input {
+    font-size: 1em;
+    padding: 10px 15px;
+    border-radius: 6px 0 0 6px;
+    border: 1px solid #ddd;
+    border-right: 0;
+    flex-grow: 1;
+    max-width: 300px;
+}
+
+.form-input-group input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.form-input-group button {
+    font-size: 1em;
+    padding: 10px 20px;
+    border-radius: 0 6px 6px 0;
+    border: 1px solid #007bff;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.form-input-group button:hover {
+    background-color: #0056b3;
+}

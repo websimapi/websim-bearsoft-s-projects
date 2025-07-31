@@ -1,12 +1,35 @@
 import { html, render } from 'lit-html';
 
+const formContainer = document.getElementById('form-container');
 const userProfileContainer = document.getElementById('user-profile');
 const projectsContainer = document.getElementById('projects-container');
 
-const USERNAME = 'bearsoft';
-
 const loaderTemplate = (message) => html`<div class="loader">${message}</div>`;
 const errorTemplate = (message) => html`<div class="error">${message}</div>`;
+
+const handleUsernameSubmit = (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const username = formData.get('username').trim();
+    if (username) {
+        const url = new URL(window.location);
+        url.searchParams.set('username', username);
+        history.pushState({ username }, '', url.toString());
+        loadUser(username);
+    }
+};
+
+const usernameFormTemplate = (errorMsg) => html`
+    <form id="username-form" @submit=${handleUsernameSubmit}>
+        <h1>Explore a User's Projects</h1>
+        <p>Enter a websim.com username to see their public projects and revision history.</p>
+        <div class="form-input-group">
+            <input type="text" name="username" placeholder="e.g. bearsoft" required>
+            <button type="submit">Fetch Projects</button>
+        </div>
+        ${errorMsg ? errorTemplate(errorMsg) : ''}
+    </form>
+`;
 
 const userProfileTemplate = (user) => html`
     <a href="https://websim.com/@${user.username}" target="_blank">
@@ -14,7 +37,7 @@ const userProfileTemplate = (user) => html`
     </a>
     <div>
         <h1><a href="https://websim.com/@${user.username}" target="_blank">@${user.username}</a></h1>
-        <p>Exploring all projects and revision history.</p>
+        <p>Exploring all public projects and revision history.</p>
     </div>
 `;
 
@@ -49,6 +72,10 @@ async function fetchWithPagination(url, dataType) {
             const response = await fetch(nextUrl);
             if (!response.ok) {
                 console.error(`HTTP error! status: ${response.status} for ${nextUrl}`);
+                if (response.status === 404 && dataType === 'projects') {
+                     // This can happen for users with no public projects, not necessarily an error to stop everything.
+                     return [];
+                }
                 return results; // Return what we have so far
             }
             const body = await response.json();
@@ -73,25 +100,36 @@ async function fetchWithPagination(url, dataType) {
     return results;
 }
 
-async function main() {
+async function loadUser(username) {
+    render(html``, formContainer); // Clear form
+    userProfileContainer.style.display = 'flex';
+    projectsContainer.style.display = 'grid';
+
     render(loaderTemplate('Loading user profile...'), userProfileContainer);
     render(loaderTemplate('Loading projects...'), projectsContainer);
 
     try {
-        const userResponse = await fetch(`/api/v1/users/${USERNAME}`);
-        if (!userResponse.ok) throw new Error('Failed to load user profile.');
+        const userResponse = await fetch(`/api/v1/users/${username}`);
+        if (!userResponse.ok) {
+            if (userResponse.status === 404) {
+                throw new Error(`User "${username}" not found. Please check the username and try again.`);
+            }
+            throw new Error('Failed to load user profile.');
+        }
         const { user } = await userResponse.json();
         render(userProfileTemplate(user), userProfileContainer);
         
         const projects = await fetchWithPagination(`/api/v1/users/${user.username}/projects?first=100`, 'projects');
 
         if (projects.length === 0) {
-            render(html`<p>No projects found for this user.</p>`, projectsContainer);
+            render(html`<div class="project-card"><p>No public projects found for this user.</p></div>`, projectsContainer);
             return;
         }
         
-        // Clear loader
-        render(html``, projectsContainer);
+        render(html``, projectsContainer); // Clear loader
+
+        // Sort projects by last updated
+        projects.sort((a, b) => new Date(b.project.updated_at) - new Date(a.project.updated_at));
 
         for (const project of projects) {
             const tempProjectContainer = document.createElement('div');
@@ -99,15 +137,47 @@ async function main() {
             render(loaderTemplate(`Loading revisions for "${project.project.title || 'Untitled'}"...`), tempProjectContainer);
 
             const revisions = await fetchWithPagination(`/api/v1/projects/${project.project.id}/revisions?first=100`, 'revisions');
+            // sort revisions descending by version
+            revisions.sort((a,b) => b.project_revision.version - a.project_revision.version);
             render(projectTemplate(project, revisions), tempProjectContainer);
         }
 
     } catch (error) {
         console.error('An error occurred:', error);
-        render(errorTemplate('Could not load project data. Please try again later.'), projectsContainer);
-        render(errorTemplate('Could not load user profile.'), userProfileContainer);
+        render(usernameFormTemplate(error.message), formContainer);
+        userProfileContainer.style.display = 'none';
+        projectsContainer.style.display = 'none';
+        render(html``, userProfileContainer);
+        render(html``, projectsContainer);
     }
 }
 
-main();
 
+function init() {
+    const params = new URLSearchParams(window.location.search);
+    const username = params.get('username');
+
+    if (username) {
+        loadUser(username);
+    } else {
+        render(usernameFormTemplate(), formContainer);
+        userProfileContainer.style.display = 'none';
+        projectsContainer.style.display = 'none';
+    }
+}
+
+window.addEventListener('popstate', (event) => {
+    const params = new URLSearchParams(window.location.search);
+    const username = params.get('username');
+    if (username) {
+        loadUser(username);
+    } else {
+        render(usernameFormTemplate(), formContainer);
+        userProfileContainer.style.display = 'none';
+        projectsContainer.style.display = 'none';
+        render(html``, userProfileContainer);
+        render(html``, projectsContainer);
+    }
+});
+
+init();
